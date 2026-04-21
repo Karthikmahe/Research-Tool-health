@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any
 import os
 import re
@@ -24,11 +24,21 @@ SCOPUS_API_KEY = os.getenv("SCOPUS_API_KEY")
 PUBMED_EMAIL = os.getenv("PUBMED_EMAIL")
 PUBMED_API_KEY = os.getenv("PUBMED_API_KEY")
 
+VALID_SOURCES = {"pubmed", "scopus"}
+
 class SearchRequest(BaseModel):
     topic: str = Field(..., min_length=3)
     max_results: int = Field(10, ge=1, le=100)
     include_full_text: bool = False
-    sources: List[str] = Field(default=["pubmed", "scopus"])
+    sources: List[str] = Field(default=list(VALID_SOURCES))
+
+    @validator("sources")
+    def validate_sources(cls, v: List[str]) -> List[str]:
+        lowered = [s.lower() for s in v]
+        invalid = set(lowered) - VALID_SOURCES
+        if invalid:
+            raise ValueError(f"Invalid source(s): {invalid}. Must be one of {VALID_SOURCES}.")
+        return lowered
 
 class Article(BaseModel):
     source: str
@@ -59,7 +69,7 @@ def health():
 
 @app.post("/api/search", response_model=SearchResponse)
 def search(req: SearchRequest):
-    active_sources = [s.lower() for s in req.sources] if req.sources else ["pubmed", "scopus"]
+    active_sources = req.sources  # already validated and lowercased
 
     if "pubmed" in active_sources and not PUBMED_EMAIL:
         raise HTTPException(status_code=500, detail="PUBMED_EMAIL env var is required when searching PubMed.")

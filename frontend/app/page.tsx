@@ -124,7 +124,10 @@ export default function Home() {
           min={1}
           max={100}
           value={maxResults}
-          onChange={(e) => setMaxResults(Number(e.target.value))}
+          onChange={(e) => {
+            const val = parseInt(e.target.value, 10);
+            if (!isNaN(val)) setMaxResults(Math.min(100, Math.max(1, val)));
+          }}
         />
 
         <button type="submit" disabled={loading}>
