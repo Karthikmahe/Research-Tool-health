@@ -27,14 +27,26 @@ type SearchResponse = {
 
 export default function Home() {
   const [topic, setTopic] = useState("");
+  const [maxResults, setMaxResults] = useState(25);
+  const [sources, setSources] = useState<string[]>(["scopus"]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SearchResponse | null>(null);
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
+  const toggleSource = (src: string) => {
+    setSources((prev) =>
+      prev.includes(src) ? prev.filter((s) => s !== src) : [...prev, src]
+    );
+  };
+
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (sources.length === 0) {
+      setError("Please select at least one source database.");
+      return;
+    }
     setLoading(true);
     setError(null);
     setData(null);
@@ -43,7 +55,7 @@ export default function Home() {
       const res = await fetch(`${apiBase}/api/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, max_results: 10, include_full_text: false }),
+        body: JSON.stringify({ topic, max_results: maxResults, include_full_text: false, sources }),
       });
 
       if (!res.ok) {
@@ -79,9 +91,42 @@ export default function Home() {
           id="topic"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder="e.g., wearable devices for hypertension monitoring"
+          placeholder="e.g., effect of meditation on cardiac arrhythmias"
           required
         />
+
+        <fieldset style={{ border: "none", padding: 0 }}>
+          <legend style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Sources</legend>
+          <label style={{ marginRight: "1rem" }}>
+            <input
+              type="checkbox"
+              checked={sources.includes("pubmed")}
+              onChange={() => toggleSource("pubmed")}
+              style={{ marginRight: "0.3rem" }}
+            />
+            PubMed
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={sources.includes("scopus")}
+              onChange={() => toggleSource("scopus")}
+              style={{ marginRight: "0.3rem" }}
+            />
+            Scopus
+          </label>
+        </fieldset>
+
+        <label htmlFor="maxResults">Max results (1–100)</label>
+        <input
+          id="maxResults"
+          type="number"
+          min={1}
+          max={100}
+          value={maxResults}
+          onChange={(e) => setMaxResults(Number(e.target.value))}
+        />
+
         <button type="submit" disabled={loading}>
           {loading ? "Searching..." : "Search literature"}
         </button>
